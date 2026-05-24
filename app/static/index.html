@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Helix RAG — production-grade retrieval-augmented generation. Hybrid BM25+FAISS retrieval, cross-encoder reranking, streaming generation, guardrails, cost tracking, and live metrics." />
+  <title>Helix RAG · Production Document Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080b14;
+      --surface: rgba(255,255,255,0.04);
+      --surface-2: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.08);
+      --border-2: rgba(255,255,255,0.14);
+      --accent: #7c3aed;
+      --accent-2: #4f46e5;
+      --text-1: #f8fafc;
+      --text-2: #94a3b8;
+      --text-3: #475569;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --radius: 14px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image:
+        radial-gradient(ellipse 70% 50% at 80% 5%,  rgba(124,58,237,0.13) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 15% 95%, rgba(79,70,229,0.09) 0%, transparent 55%);
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(8,11,20,0.88);
+      border-bottom: 1px solid var(--border);
+      padding: 13px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; }
+
+    .logo-mark {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 22px rgba(124,58,237,0.45);
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .header-title { font-size: 15px; font-weight: 700; color: var(--text-1); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+    .header-title span {
+      background: linear-gradient(90deg, #a78bfa, #818cf8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .version-tag {
+      font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+      padding: 2px 6px; border-radius: 4px;
+      background: rgba(124,58,237,0.18); color: #c4b5fd;
+      border: 1px solid rgba(124,58,237,0.3);
+      text-transform: uppercase;
+    }
+    .header-sub { font-size: 11px; color: var(--text-3); letter-spacing: 0.02em; }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.22);
+      border-radius: 20px;
+      padding: 4px 11px;
+      font-size: 11px; font-weight: 500; color: #6ee7b7;
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      background: #10b981; border-radius: 50%;
+      animation: pulse-dot 2.2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+      50%      { opacity: 0.75; box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+    }
+
+    .api-link {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 11px; font-size: 11px; font-weight: 500; color: var(--text-2);
+      text-decoration: none; transition: all 0.15s;
+    }
+    .api-link:hover { background: var(--surface-2); color: var(--text-1); border-color: var(--border-2); }
+    .api-link svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* New-chat button reuses .api-link styling but is a real button */
+    .new-chat-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 11px; font-size: 11px; font-weight: 500; color: var(--text-2);
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .new-chat-btn:hover { background: var(--surface-2); color: var(--text-1); border-color: var(--border-2); }
+    .new-chat-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .new-chat-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      max-width: 800px; width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px 210px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 56px 0 20px;
+    }
+
+    .empty-hero {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(79,70,229,0.18));
+      border: 1px solid rgba(124,58,237,0.28);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px;
+      box-shadow: 0 0 48px rgba(124,58,237,0.14);
+    }
+    .empty-hero svg { width: 30px; height: 30px; stroke: #a78bfa; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+    .empty-state h2 {
+      font-size: 32px; font-weight: 700; letter-spacing: -0.035em;
+      text-align: center; margin-bottom: 12px; line-height: 1.15;
+    }
+    .empty-state h2 span {
+      background: linear-gradient(90deg, #a78bfa, #818cf8, #67e8f9);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .empty-desc {
+      font-size: 14px; color: var(--text-2); text-align: center;
+      line-height: 1.75; max-width: 520px; margin-bottom: 28px;
+    }
+
+    /* Tech-stack credibility strip */
+    .tech-strip {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+      max-width: 640px; margin-bottom: 18px;
+    }
+    .tech-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10.5px; font-weight: 500;
+      color: var(--text-2);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 10px;
+      letter-spacing: 0.01em;
+    }
+    .tech-pill .dot { width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; }
+    .tech-pill .dot.green { background: #10b981; }
+    .tech-pill .dot.cyan  { background: #67e8f9; }
+    .tech-pill .dot.amber { background: #f59e0b; }
+
+    /* Stats strip — credibility numbers */
+    .stats-strip {
+      display: flex; gap: 28px; justify-content: center;
+      margin-bottom: 36px; flex-wrap: wrap;
+    }
+    .stat-block { text-align: center; min-width: 70px; }
+    .stat-num {
+      font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+      background: linear-gradient(180deg, #f8fafc, #cbd5e1);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .stat-cap {
+      font-size: 10px; font-weight: 500;
+      color: var(--text-3); text-transform: uppercase; letter-spacing: 0.1em;
+      margin-top: 2px;
+    }
+
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 12px;
+      width: 100%; max-width: 720px; margin-bottom: 40px;
+    }
+    @media (max-width: 720px) { .feature-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 480px) { .feature-grid { grid-template-columns: 1fr; } }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 14px; text-align: left;
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .feature-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .feature-card:hover { background: var(--surface-2); border-color: var(--border-2); transform: translateY(-2px); }
+    .feature-card:hover::before { opacity: 1; }
+    .feat-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(79,70,229,0.15));
+      border: 1px solid rgba(124,58,237,0.25);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 10px;
+    }
+    .feat-icon svg { width: 14px; height: 14px; stroke: #c4b5fd; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .feat-title { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 4px; letter-spacing: -0.01em; }
+    .feat-desc { font-size: 11.5px; color: var(--text-3); line-height: 1.55; }
+    .feat-tag {
+      display: inline-block; margin-top: 8px;
+      font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em;
+      color: #a78bfa; background: rgba(124,58,237,0.1);
+      padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+    }
+
+    .sample-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 10px;
+    }
+    .sample-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 600px; }
+    .sample-chip {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 7px 14px;
+      font-size: 12px; color: var(--text-2); cursor: pointer;
+      transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+    }
+    .sample-chip::before { content: '↗'; font-size: 10px; color: var(--text-3); }
+    .sample-chip:hover { background: rgba(124,58,237,0.12); border-color: rgba(124,58,237,0.4); color: #c4b5fd; }
+
+    /* ── Thread ── */
+    .thread-item {
+      display: flex; flex-direction: column; gap: 10px;
+      animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .session-divider {
+      display: flex; align-items: center; gap: 12px;
+      color: var(--text-3); font-size: 11px;
+      letter-spacing: 0.05em; text-transform: uppercase; margin-top: 8px;
+    }
+    .session-divider::before, .session-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* User bubble */
+    .user-bubble { display: flex; justify-content: flex-end; }
+    .user-bubble-inner {
+      max-width: 76%;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 16px 16px 4px 16px;
+      padding: 11px 16px;
+      font-size: 14px; font-weight: 500; color: #fff;
+      line-height: 1.6; box-shadow: 0 4px 20px rgba(124,58,237,0.28);
+    }
+
+    /* AI card */
+    .ai-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    .ai-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 15px; border-bottom: 1px solid var(--border);
+    }
+    .ai-label { display: flex; align-items: center; gap: 8px; }
+    .ai-avatar {
+      width: 24px; height: 24px;
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+    }
+    .ai-name { font-size: 13px; font-weight: 600; color: var(--text-1); }
+    .ai-model-tag {
+      font-size: 10px; color: var(--text-3);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 6px;
+    }
+    .copy-btn {
+      background: none; border: 1px solid transparent; border-radius: 6px;
+      color: var(--text-3); font-size: 11px; font-weight: 500; cursor: pointer;
+      padding: 4px 8px; transition: all 0.15s;
+      display: flex; align-items: center; gap: 4px; font-family: inherit;
+    }
+    .copy-btn:hover { background: var(--surface-2); border-color: var(--border); color: var(--text-2); }
+    .copy-btn svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .ai-answer { padding: 18px 16px; font-size: 15px; line-height: 1.85; color: #e2e8f0; }
+    .ai-answer.streaming::after {
+      content: '▋';
+      display: inline-block;
+      margin-left: 2px;
+      color: #818cf8;
+      animation: cursor-blink 1s steps(2, start) infinite;
+    }
+    @keyframes cursor-blink { to { visibility: hidden; } }
+    .ai-model-tag.model-tag-pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+    }
+    /* ---- Confidence badge ---- */
+    .confidence-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      margin-left: 4px;
+      cursor: help;
+    }
+    .confidence-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .confidence-badge.high   { color: #34d399; background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); }
+    .confidence-badge.medium { color: #fbbf24; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.35); }
+    .confidence-badge.low    { color: #f87171; background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.35);  }
+    .confidence-badge.pending {
+      color: #94a3b8;
+      background: rgba(148,163,184,0.10);
+      border-color: rgba(148,163,184,0.30);
+    }
+
+    /* Sources */
+    .sources-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.02); border-top: 1px solid var(--border);
+      cursor: pointer; user-select: none; transition: background 0.15s;
+    }
+    .sources-toggle:hover { background: rgba(255,255,255,0.04); }
+    .sources-toggle-left {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-3);
+    }
+    .source-count-badge {
+      background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.32);
+      color: #c4b5fd; font-size: 10px; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px;
+    }
+    .chevron { color: var(--text-3); font-size: 11px; transition: transform 0.2s; }
+
+    .sources-body {
+      padding: 12px 16px; display: flex; flex-direction: column; gap: 7px;
+      border-top: 1px solid var(--border);
+    }
+    .sources-body.collapsed { display: none; }
+
+    .source-item {
+      display: flex; align-items: center; gap: 11px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--score-color, #7c3aed);
+      border-radius: 8px; padding: 10px 13px;
+      transition: background 0.15s;
+    }
+    .source-item:hover { background: rgba(255,255,255,0.042); }
+    .source-item-icon {
+      width: 30px; height: 30px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 7px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .source-item-info { flex: 1; min-width: 0; }
+    .source-item-name {
+      font-size: 13px; font-weight: 500; color: #a5b4fc;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .source-item-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .score-pill {
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; flex-shrink: 0;
+    }
+    .score-pill.high { background: rgba(16,185,129,0.12); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+    .score-pill.mid  { background: rgba(245,158,11,0.12); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+    .score-pill.low  { background: rgba(239,68,68,0.10);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      padding: 10px 16px; border-top: 1px solid var(--border);
+      background: rgba(255,255,255,0.015);
+    }
+    .stat-pill {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px 10px;
+      font-size: 11px; color: var(--text-3);
+    }
+    .stat-pill .stat-val { color: var(--text-2); font-weight: 500; }
+
+    /* Error */
+    .error-card {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.22);
+      border-radius: var(--radius); padding: 15px 17px;
+      font-size: 14px; color: #fca5a5;
+      animation: fadeUp 0.3s ease;
+    }
+    .error-icon { font-size: 17px; flex-shrink: 0; margin-top: 1px; }
+
+    /* Loading */
+    .loading-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px 18px;
+      display: flex; align-items: center; gap: 14px;
+      animation: fadeUp 0.3s ease;
+    }
+    .typing-dots { display: flex; gap: 4px; align-items: center; }
+    .typing-dots span {
+      width: 7px; height: 7px; border-radius: 50%;
+      animation: bounce-dot 1.2s ease-in-out infinite;
+    }
+    .typing-dots span:nth-child(1) { background: #7c3aed; }
+    .typing-dots span:nth-child(2) { background: #6366f1; animation-delay: 0.15s; }
+    .typing-dots span:nth-child(3) { background: #4f46e5; animation-delay: 0.30s; }
+    @keyframes bounce-dot {
+      0%,60%,100% { transform: translateY(0); opacity: 0.55; }
+      30%          { transform: translateY(-6px); opacity: 1; }
+    }
+    .loading-text { font-size: 13px; color: var(--text-3); }
+
+    /* ── Input bar ── */
+    .input-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 16px 24px 26px;
+      background: linear-gradient(to top, var(--bg) 65%, transparent);
+    }
+    .input-inner { max-width: 800px; margin: 0 auto; }
+
+    .input-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 9px 9px 9px 16px;
+      display: flex; align-items: flex-end; gap: 8px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 28px rgba(0,0,0,0.35), 0 0 0 0 rgba(124,58,237,0);
+      backdrop-filter: blur(14px);
+    }
+    .input-box:focus-within {
+      border-color: rgba(124,58,237,0.48);
+      box-shadow: 0 4px 28px rgba(0,0,0,0.35), 0 0 0 3px rgba(124,58,237,0.12);
+    }
+
+    textarea {
+      flex: 1; background: transparent; border: none;
+      color: var(--text-1); font-size: 14px; font-family: 'Inter', inherit;
+      padding: 5px 0; resize: none;
+      min-height: 28px; max-height: 120px; line-height: 1.6; outline: none;
+    }
+    textarea::placeholder { color: var(--text-3); }
+
+    button#send-btn {
+      background: linear-gradient(135deg, #7c3aed, #4f46e5);
+      color: #fff; border: none; border-radius: 10px;
+      width: 38px; height: 38px; flex-shrink: 0;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+      box-shadow: 0 2px 12px rgba(124,58,237,0.42);
+    }
+    button#send-btn:hover  { transform: scale(1.06); box-shadow: 0 4px 18px rgba(124,58,237,0.55); }
+    button#send-btn:active { transform: scale(0.96); }
+    button#send-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; box-shadow: none; }
+    button#send-btn svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Attach (upload) button */
+    button#attach-btn {
+      background: transparent; color: var(--text-2);
+      border: 1px solid var(--border); border-radius: 10px;
+      width: 38px; height: 38px; flex-shrink: 0;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    button#attach-btn:hover    { background: var(--surface-2); color: var(--text-1); border-color: var(--border-2); }
+    button#attach-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    button#attach-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* Upload status strip — appears just above the input bar while uploading */
+    .upload-status {
+      max-width: 800px; margin: 0 auto 9px; padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; font-size: 12px; color: var(--text-2);
+      display: flex; align-items: center; gap: 10px;
+      animation: fadeInUp 0.18s ease;
+    }
+    .upload-status.success { border-color: rgba(34,197,94,0.4); color: #4ade80; }
+    .upload-status.error   { border-color: rgba(239,68,68,0.4); color: #f87171; }
+    .upload-status .spinner {
+      width: 12px; height: 12px; border: 2px solid var(--border-2);
+      border-top-color: #a78bfa; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    /* Full-window drop overlay */
+    .drop-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(8,11,20,0.82); backdrop-filter: blur(10px);
+      display: none; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .drop-overlay.active { display: flex; }
+    .drop-overlay .panel {
+      border: 2px dashed rgba(124,58,237,0.6); border-radius: 24px;
+      padding: 56px 80px; text-align: center;
+      background: rgba(124,58,237,0.08);
+    }
+    .drop-overlay .panel svg {
+      width: 48px; height: 48px; stroke: #a78bfa; fill: none;
+      stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+      margin-bottom: 18px;
+    }
+    .drop-overlay .panel-title { font-size: 22px; font-weight: 600; color: var(--text-1); margin-bottom: 6px; }
+    .drop-overlay .panel-sub   { font-size: 13px; color: var(--text-3); }
+
+    .hint {
+      text-align: center; font-size: 11px; color: var(--text-3); margin-top: 9px;
+    }
+    .hint kbd {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 3px; padding: 1px 5px;
+      font-family: inherit; font-size: 10px; color: var(--text-2);
+    }
+    .hint a { color: var(--text-3); text-decoration: none; }
+    .hint a:hover { color: var(--text-2); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.09); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-mark">
+      <!-- Layers / knowledge stack icon -->
+      <svg viewBox="0 0 24 24">
+        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+        <polyline points="2 17 12 22 22 17"/>
+        <polyline points="2 12 12 17 22 12"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-title">Helix <span>RAG</span><span class="version-tag">v1.0</span></div>
+      <div class="header-sub">Production Document Intelligence</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      Ready
+    </div>
+    <button class="new-chat-btn" id="new-chat-btn" type="button" title="Clear conversation memory">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      New chat
+    </button>
+    <a class="api-link" href="/docs" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      API Docs
+    </a>
+    <a class="api-link" href="/dashboard" target="_blank" rel="noopener" title="Live metrics">
+      <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+      Metrics
+    </a>
+  </div>
+</header>
+
+<main id="main">
+  <div class="empty-state" id="empty-state">
+    <div class="empty-hero">
+      <svg viewBox="0 0 24 24">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    </div>
+    <h2>Production-grade answers from your <span>documents</span></h2>
+    <p class="empty-desc">Hybrid BM25&nbsp;+&nbsp;FAISS retrieval, cross-encoder reranking, streaming generation, guardrails, and end-to-end evaluation — engineered for accuracy, observability, and scale.</p>
+
+    <div class="tech-strip" aria-label="Tech stack">
+      <span class="tech-pill"><span class="dot"></span>BM25 + FAISS + RRF</span>
+      <span class="tech-pill"><span class="dot cyan"></span>Cross-Encoder Reranker</span>
+      <span class="tech-pill"><span class="dot green"></span>SSE Streaming</span>
+      <span class="tech-pill"><span class="dot amber"></span>Guardrails</span>
+      <span class="tech-pill"><span class="dot"></span>Cost Tracked</span>
+      <span class="tech-pill"><span class="dot cyan"></span>FastAPI · OpenAI · Cloud Run</span>
+    </div>
+
+    <div class="stats-strip" aria-label="System stats">
+      <div class="stat-block"><div class="stat-num">214</div><div class="stat-cap">Tests Passing</div></div>
+      <div class="stat-block"><div class="stat-num">6</div><div class="stat-cap">Eval Metrics</div></div>
+      <div class="stat-block"><div class="stat-num">2-Stage</div><div class="stat-cap">Retrieval</div></div>
+      <div class="stat-block"><div class="stat-num">384-d</div><div class="stat-cap">Embeddings</div></div>
+      <div class="stat-block"><div class="stat-num">Live</div><div class="stat-cap">/dashboard</div></div>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="feat-title">Hybrid Retrieval</div>
+        <div class="feat-desc">BM25 keyword search fused with FAISS vector search via Reciprocal Rank Fusion.</div>
+        <span class="feat-tag">BM25 + FAISS + RRF</span>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="3 6 9 12 3 18"/><line x1="13" y1="6" x2="21" y2="6"/><line x1="13" y1="12" x2="21" y2="12"/><line x1="13" y1="18" x2="21" y2="18"/></svg>
+        </div>
+        <div class="feat-title">Neural Reranker</div>
+        <div class="feat-desc">Cross-encoder model re-scores top candidates for precision on nuanced queries.</div>
+        <span class="feat-tag">ms-marco MiniLM-L-6</span>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="13 2 13 10 21 10"/><polyline points="11 22 11 14 3 14"/></svg>
+        </div>
+        <div class="feat-title">Streaming Generation</div>
+        <div class="feat-desc">Token-by-token Server-Sent Events deliver answers as they're produced.</div>
+        <span class="feat-tag">SSE · OpenAI</span>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-0.5 8-5 8-10V6l-8-4z"/></svg>
+        </div>
+        <div class="feat-title">Safety Guardrails</div>
+        <div class="feat-desc">Input/output screening for PII, prompt-injection, and off-topic requests.</div>
+        <span class="feat-tag">PII · Injection</span>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/></svg>
+        </div>
+        <div class="feat-title">Cost &amp; Observability</div>
+        <div class="feat-desc">Token usage, $ cost, p50/p95/p99 latency — live at <code>/dashboard</code>.</div>
+        <span class="feat-tag">Real-time Metrics</span>
+      </div>
+      <div class="feature-card">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="feat-title">Evaluation Harness</div>
+        <div class="feat-desc">precision@k, MRR, keyword coverage, context utilization — reproducible offline.</div>
+        <span class="feat-tag">214 Tests · 6 Metrics</span>
+      </div>
+    </div>
+
+    <div class="sample-label">Try asking</div>
+    <div class="sample-chips" id="sample-chips" aria-label="Sample questions">
+      <!-- Populated at runtime from GET /samples -->
+    </div>
+  </div>
+</main>
+
+<div class="input-bar">
+  <div class="input-inner">
+    <div id="upload-status" class="upload-status" style="display:none;"></div>
+    <div class="input-box">
+      <button id="attach-btn" type="button" aria-label="Upload PDF or TXT" title="Upload a PDF or text file">
+        <svg viewBox="0 0 24 24">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 0 1 18 8.84l-8.59 8.57a2 2 0 1 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+      </button>
+      <input id="file-input" type="file" accept=".pdf,.txt,application/pdf,text/plain" hidden />
+      <textarea id="question-input" rows="1"
+        placeholder="Ask a question about your documents…"
+      ></textarea>
+      <button id="send-btn" aria-label="Send">
+        <svg viewBox="0 0 24 24">
+          <line x1="12" y1="19" x2="12" y2="5"/>
+          <polyline points="5 12 12 5 19 12"/>
+        </svg>
+      </button>
+    </div>
+    <p class="hint">
+      <kbd>Enter</kbd> to send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> for new line
+      &nbsp;·&nbsp; Drag &amp; drop a PDF or TXT to add documents
+      &nbsp;·&nbsp; <a href="/docs" target="_blank" rel="noopener">API Docs ↗</a>
+    </p>
+  </div>
+</div>
+
+<div id="drop-overlay" class="drop-overlay" aria-hidden="true">
+  <div class="panel">
+    <svg viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <div class="panel-title">Drop to add to your knowledge base</div>
+    <div class="panel-sub">PDF or TXT · up to 10 MB</div>
+  </div>
+</div>
+
+<script>
+  const input   = document.getElementById('question-input');
+  const sendBtn = document.getElementById('send-btn');
+  const mainEl  = document.getElementById('main');
+  const emptyEl = document.getElementById('empty-state');
+  const newChatBtn = document.getElementById('new-chat-btn');
+
+  // ── New chat: reset session memory on server and clear chat UI ──
+  async function startNewChat() {
+    const sessionId = localStorage.getItem('rag_session_id');
+    newChatBtn.disabled = true;
+    try {
+      if (sessionId) {
+        // Best-effort: ignore errors so a stale id never blocks UX
+        await fetch('/session/reset', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ session_id: sessionId }),
+        }).catch(() => {});
+      }
+    } finally {
+      localStorage.removeItem('rag_session_id');
+      // Wipe all rendered cards but keep the empty-state element
+      Array.from(mainEl.children).forEach(child => {
+        if (child !== emptyEl) child.remove();
+      });
+      if (emptyEl) emptyEl.style.display = '';
+      newChatBtn.disabled = false;
+      input.focus();
+    }
+  }
+  if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
+
+  // ── Document upload (click-to-pick + drag-and-drop) ──
+  const attachBtn   = document.getElementById('attach-btn');
+  const fileInput   = document.getElementById('file-input');
+  const dropOverlay = document.getElementById('drop-overlay');
+  const uploadStatus = document.getElementById('upload-status');
+
+  const MAX_UPLOAD_MB = 10;
+  const ALLOWED_EXT = ['.pdf', '.txt'];
+
+  function showUploadStatus(text, variant) {
+    uploadStatus.className = 'upload-status' + (variant ? ' ' + variant : '');
+    uploadStatus.innerHTML = variant
+      ? `<span>${escHtml(text)}</span>`
+      : `<span class="spinner"></span><span>${escHtml(text)}</span>`;
+    uploadStatus.style.display = 'flex';
+  }
+  function hideUploadStatus(delayMs) {
+    setTimeout(() => { uploadStatus.style.display = 'none'; }, delayMs || 0);
+  }
+
+  function validateFileClientSide(file) {
+    const lower = file.name.toLowerCase();
+    const ok = ALLOWED_EXT.some(ext => lower.endsWith(ext));
+    if (!ok) return `Unsupported file type. Allowed: ${ALLOWED_EXT.join(', ')}`;
+    if (file.size === 0) return 'File is empty.';
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      return `File too large (max ${MAX_UPLOAD_MB} MB).`;
+    }
+    return null;
+  }
+
+  async function uploadFile(file) {
+    const clientErr = validateFileClientSide(file);
+    if (clientErr) {
+      showUploadStatus(clientErr, 'error');
+      hideUploadStatus(4000);
+      return;
+    }
+    attachBtn.disabled = true;
+    sendBtn.disabled   = true;
+    showUploadStatus(`Uploading ${file.name}…`);
+
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/upload', { method: 'POST', body: form });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = data.detail || `Upload failed (${res.status})`;
+        showUploadStatus(msg, 'error');
+        hideUploadStatus(5000);
+        return;
+      }
+
+      showUploadStatus(
+        `Added “${data.document_name}” · ${data.chunks_added} chunks · ${data.total_chunks} total in index`,
+        'success'
+      );
+      hideUploadStatus(5000);
+    } catch (e) {
+      showUploadStatus(`Network error: ${e.message}`, 'error');
+      hideUploadStatus(5000);
+    } finally {
+      attachBtn.disabled = false;
+      sendBtn.disabled   = false;
+      fileInput.value = '';   // allow re-uploading the same filename
+    }
+  }
+
+  attachBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files && fileInput.files[0]) uploadFile(fileInput.files[0]);
+  });
+
+  // Drag-and-drop on the whole window
+  let dragDepth = 0;
+  function isFileDrag(e) {
+    return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  }
+  window.addEventListener('dragenter', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropOverlay.classList.add('active');
+  });
+  window.addEventListener('dragover', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  window.addEventListener('dragleave', e => {
+    if (!isFileDrag(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropOverlay.classList.remove('active');
+  });
+  window.addEventListener('drop', e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropOverlay.classList.remove('active');
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) uploadFile(f);
+  });
+
+  // Auto-grow textarea
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  });
+
+  // Send on Enter (Shift+Enter = newline)
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  });
+
+  sendBtn.addEventListener('click', sendQuestion);
+
+  // Sample chips — populated from GET /samples on load, then click-to-ask
+  // via event delegation so chips added later still work.
+  const sampleChipsEl = document.getElementById('sample-chips');
+  if (sampleChipsEl) {
+    sampleChipsEl.addEventListener('click', (e) => {
+      const chip = e.target.closest('.sample-chip');
+      if (!chip) return;
+      const question = chip.dataset.question || chip.textContent.trim();
+      input.value = question;
+      input.dispatchEvent(new Event('input'));
+      // Auto-submit so the chip behaves like a one-click demo button.
+      sendQuestion();
+    });
+    sampleChipsEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const chip = e.target.closest('.sample-chip');
+      if (!chip) return;
+      e.preventDefault();
+      chip.click();
+    });
+    loadSamples();
+  }
+
+  async function loadSamples() {
+    // Render a small placeholder so the section is not empty if the request
+    // is slow. Replaced as soon as /samples returns.
+    sampleChipsEl.innerHTML = '<div class="sample-chip" aria-busy="true" style="opacity:0.55;cursor:default">Loading sample questions…</div>';
+    try {
+      const res = await fetch('/samples');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const items = Array.isArray(data.samples) ? data.samples : [];
+      if (!items.length) {
+        sampleChipsEl.innerHTML = '';
+        return;
+      }
+      sampleChipsEl.innerHTML = items.map(s => {
+        // We store the full question text in data-question so the chip label
+        // can be short while the actual submitted question stays meaningful.
+        const label = escHtml(s.label || s.question || '');
+        const q     = escHtml(s.question || s.label || '');
+        return `<div class="sample-chip" role="button" tabindex="0" data-question="${q}" title="${q}">${label}</div>`;
+      }).join('');
+    } catch (_err) {
+      // Soft-fail: just hide the section if /samples is unavailable.
+      sampleChipsEl.innerHTML = '';
+    }
+  }
+
+  function scoreClass(s) {
+    if (s >= 0.75) return 'high';
+    if (s >= 0.50) return 'mid';
+    return 'low';
+  }
+  function scoreColor(s) {
+    if (s >= 0.75) return '#10b981';
+    if (s >= 0.50) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  let questionCount = 0;
+
+  function buildThread(question, data) {
+    questionCount++;
+    const thread = document.createElement('div');
+    thread.className = 'thread-item';
+
+    // Divider between questions
+    if (questionCount > 1) {
+      const divider = document.createElement('div');
+      divider.className = 'session-divider';
+      divider.textContent = `Q${questionCount}`;
+      thread.appendChild(divider);
+    }
+
+    // User bubble
+    const userBubble = document.createElement('div');
+    userBubble.className = 'user-bubble';
+    userBubble.innerHTML = `<div class="user-bubble-inner">${escHtml(question)}</div>`;
+    thread.appendChild(userBubble);
+
+    // AI response card
+    const aiCard = document.createElement('div');
+    aiCard.className = 'ai-card';
+
+    // Header
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'ai-card-header';
+    cardHeader.innerHTML = `
+      <div class="ai-label">
+        <div class="ai-avatar">🤖</div>
+        <span class="ai-name">RAG Assistant</span>
+        <span class="ai-model-tag">${escHtml(data.model)}</span>
+      </div>
+      <button class="copy-btn" title="Copy answer">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy
+      </button>
+    `;
+
+    // Copy button logic
+    cardHeader.querySelector('.copy-btn').addEventListener('click', function () {
+      navigator.clipboard.writeText(data.answer).then(() => {
+        this.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+        setTimeout(() => {
+          this.innerHTML = `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+        }, 2200);
+      });
+    });
+
+    aiCard.appendChild(cardHeader);
+
+    // Answer body
+    const answerDiv = document.createElement('div');
+    answerDiv.className = 'ai-answer';
+    answerDiv.textContent = data.answer;
+    aiCard.appendChild(answerDiv);
+
+    // Sources
+    if (data.sources && data.sources.length) {
+      const toggle = document.createElement('div');
+      toggle.className = 'sources-toggle';
+      toggle.innerHTML = `
+        <div class="sources-toggle-left">
+          <span>Sources</span>
+          <span class="source-count-badge">${data.sources.length}</span>
+        </div>
+        <span class="chevron">▾</span>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'sources-body';
+
+      data.sources.forEach(s => {
+        const sc = scoreClass(s.score);
+        const color = scoreColor(s.score);
+        const item = document.createElement('div');
+        item.className = 'source-item';
+        item.style.setProperty('--score-color', color);
+        item.innerHTML = `
+          <div class="source-item-icon">📄</div>
+          <div class="source-item-info">
+            <div class="source-item-name">${escHtml(s.document_name || 'unknown')}</div>
+            <div class="source-item-meta">Page ${s.page ?? '?'} &nbsp;·&nbsp; Chunk <code style="font-family:monospace;font-size:10px;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px">${escHtml(s.chunk_id)}</code></div>
+          </div>
+          <span class="score-pill ${sc}">${(s.score * 100).toFixed(1)}%</span>
+        `;
+        body.appendChild(item);
+      });
+
+      let collapsed = false;
+      toggle.addEventListener('click', () => {
+        collapsed = !collapsed;
+        body.classList.toggle('collapsed', collapsed);
+        toggle.querySelector('.chevron').style.transform = collapsed ? 'rotate(-90deg)' : '';
+      });
+
+      aiCard.appendChild(toggle);
+      aiCard.appendChild(body);
+    }
+
+    // Stats bar
+    const statsBar = document.createElement('div');
+    statsBar.className = 'stats-bar';
+    statsBar.innerHTML = `
+      <div class="stat-pill">⏱ <span class="stat-val">${data.latency_ms} ms</span></div>
+      <div class="stat-pill">🔢 <span class="stat-val">${data.total_tokens} tokens</span></div>
+      <div class="stat-pill">📊 Top score <span class="stat-val">${(data.retrieval_score * 100).toFixed(1)}%</span></div>
+    `;
+    aiCard.appendChild(statsBar);
+
+    thread.appendChild(aiCard);
+    return thread;
+  }
+
+  async function sendQuestion() {
+    const question = input.value.trim();
+    if (!question) return;
+
+    if (emptyEl) emptyEl.style.display = 'none';
+    sendBtn.disabled = true;
+    input.disabled   = true;
+
+    // Loading card with cycling text (shown only until meta event arrives)
+    const loader = document.createElement('div');
+    loader.className = 'loading-card';
+    loader.innerHTML = `
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <div class="loading-text">Searching documents…</div>
+    `;
+    mainEl.appendChild(loader);
+    loader.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+    const steps = ['Searching documents…', 'Retrieving relevant chunks…', 'Generating answer…'];
+    let stepIdx = 0;
+    const loadingTextEl = loader.querySelector('.loading-text');
+    const stepInterval = setInterval(() => {
+      stepIdx = (stepIdx + 1) % steps.length;
+      if (loadingTextEl) loadingTextEl.textContent = steps[stepIdx];
+    }, 1400);
+
+    let threadShell = null;     // { thread, answerDiv, finalize, attachSources }
+    let metaPayload = null;     // first event with sources
+    let accumulated = '';       // running answer text
+
+    const cleanupLoader = () => {
+      clearInterval(stepInterval);
+      if (loader.parentNode) loader.remove();
+    };
+
+    try {
+      const sessionId = localStorage.getItem('rag_session_id');
+      const payload = { question };
+      if (sessionId) payload.session_id = sessionId;
+
+      const res = await fetch('/ask/stream', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload),
+      });
+
+      if (!res.ok || !res.body) {
+        cleanupLoader();
+        let detail = 'Something went wrong.';
+        try { detail = (await res.json()).detail || detail; } catch (_) {}
+        const errCard = document.createElement('div');
+        errCard.className = 'error-card';
+        errCard.innerHTML = `<span class="error-icon">⚠️</span><span>Error ${res.status}: ${escHtml(detail)}</span>`;
+        mainEl.appendChild(errCard);
+        return;
+      }
+
+      // ---- Parse SSE frames from the response body ----
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE frames are separated by a blank line
+        let sepIdx;
+        while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+          const frame = buffer.slice(0, sepIdx);
+          buffer = buffer.slice(sepIdx + 2);
+          const ev = parseSseFrame(frame);
+          if (!ev) continue;
+
+          if (ev.type === 'meta') {
+            metaPayload = ev;
+            if (ev.session_id) {
+              localStorage.setItem('rag_session_id', ev.session_id);
+            }
+            cleanupLoader();
+            threadShell = buildStreamingThread(question, ev);
+            mainEl.appendChild(threadShell.thread);
+          } else if (ev.type === 'token') {
+            if (!threadShell) {
+              // Tokens arriving before meta (defensive — shouldn't happen)
+              cleanupLoader();
+              threadShell = buildStreamingThread(question, { sources: [], retrieval_score: 0 });
+              mainEl.appendChild(threadShell.thread);
+            }
+            accumulated += ev.text || '';
+            threadShell.answerDiv.textContent = accumulated;
+            window.scrollTo({ top: document.body.scrollHeight });
+          } else if (ev.type === 'done') {
+            if (!threadShell) {
+              cleanupLoader();
+              threadShell = buildStreamingThread(question, metaPayload || { sources: [], retrieval_score: 0 });
+              mainEl.appendChild(threadShell.thread);
+            }
+            threadShell.finalize({
+              answer:        accumulated,
+              model:         ev.model,
+              total_tokens:  ev.total_tokens,
+              latency_ms:    ev.latency_ms,
+            });
+          } else if (ev.type === 'error') {
+            cleanupLoader();
+            const errCard = document.createElement('div');
+            errCard.className = 'error-card';
+            errCard.innerHTML = `<span class="error-icon">⚠️</span><span>${escHtml(ev.message || 'Stream failed.')}</span>`;
+            mainEl.appendChild(errCard);
+          }
+        }
+      }
+    } catch (e) {
+      cleanupLoader();
+      const errCard = document.createElement('div');
+      errCard.className = 'error-card';
+      errCard.innerHTML = `<span class="error-icon">⚠️</span><span>Network error: ${escHtml(e.message)}</span>`;
+      mainEl.appendChild(errCard);
+    }
+
+    input.value = '';
+    input.style.height = 'auto';
+    input.disabled   = false;
+    sendBtn.disabled = false;
+    input.focus();
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  }
+
+  // Parse a single SSE frame: "event: <type>\ndata: <json>"
+  function parseSseFrame(frame) {
+    let eventType = 'message';
+    let dataLine = '';
+    for (const raw of frame.split('\n')) {
+      if (raw.startsWith('event:')) {
+        eventType = raw.slice(6).trim();
+      } else if (raw.startsWith('data:')) {
+        dataLine += raw.slice(5).trim();
+      }
+    }
+    if (!dataLine) return null;
+    try {
+      const parsed = JSON.parse(dataLine);
+      // Server already includes "type" inside the payload; trust that, but
+      // fall back to the event: header if missing.
+      if (!parsed.type) parsed.type = eventType;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Build the answer card progressively. Returns handles for live updates.
+  function buildStreamingThread(question, meta) {
+    questionCount++;
+    const thread = document.createElement('div');
+    thread.className = 'thread-item';
+
+    if (questionCount > 1) {
+      const divider = document.createElement('div');
+      divider.className = 'session-divider';
+      divider.textContent = `Q${questionCount}`;
+      thread.appendChild(divider);
+    }
+
+    const userBubble = document.createElement('div');
+    userBubble.className = 'user-bubble';
+    userBubble.innerHTML = `<div class="user-bubble-inner">${escHtml(question)}</div>`;
+    thread.appendChild(userBubble);
+
+    const aiCard = document.createElement('div');
+    aiCard.className = 'ai-card';
+
+    const cardHeader = document.createElement('div');
+    cardHeader.className = 'ai-card-header';
+    cardHeader.innerHTML = `
+      <div class="ai-label">
+        <div class="ai-avatar">🤖</div>
+        <span class="ai-name">RAG Assistant</span>
+        <span class="ai-model-tag model-tag-pending">streaming…</span>
+        ${renderConfidenceBadge(meta && meta.confidence)}
+      </div>
+      <button class="copy-btn" title="Copy answer" disabled style="opacity:0.5;cursor:not-allowed">
+        <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy
+      </button>
+    `;
+    aiCard.appendChild(cardHeader);
+
+    const answerDiv = document.createElement('div');
+    answerDiv.className = 'ai-answer streaming';
+    answerDiv.textContent = '';
+    aiCard.appendChild(answerDiv);
+
+    // Sources block (rendered immediately from meta if present)
+    const sources = (meta && meta.sources) || [];
+    if (sources.length) {
+      const toggle = document.createElement('div');
+      toggle.className = 'sources-toggle';
+      toggle.innerHTML = `
+        <div class="sources-toggle-left">
+          <span>Sources</span>
+          <span class="source-count-badge">${sources.length}</span>
+        </div>
+        <span class="chevron">▾</span>
+      `;
+      const body = document.createElement('div');
+      body.className = 'sources-body';
+      sources.forEach(s => {
+        const sc = scoreClass(s.score);
+        const color = scoreColor(s.score);
+        const item = document.createElement('div');
+        item.className = 'source-item';
+        item.style.setProperty('--score-color', color);
+        item.innerHTML = `
+          <div class="source-item-icon">📄</div>
+          <div class="source-item-info">
+            <div class="source-item-name">${escHtml(s.document_name || 'unknown')}</div>
+            <div class="source-item-meta">Page ${s.page ?? '?'} &nbsp;·&nbsp; Chunk <code style="font-family:monospace;font-size:10px;background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:3px">${escHtml(s.chunk_id)}</code></div>
+          </div>
+          <span class="score-pill ${sc}">${(s.score * 100).toFixed(1)}%</span>
+        `;
+        body.appendChild(item);
+      });
+      let collapsed = false;
+      toggle.addEventListener('click', () => {
+        collapsed = !collapsed;
+        body.classList.toggle('collapsed', collapsed);
+        toggle.querySelector('.chevron').style.transform = collapsed ? 'rotate(-90deg)' : '';
+      });
+      aiCard.appendChild(toggle);
+      aiCard.appendChild(body);
+    }
+
+    const statsBar = document.createElement('div');
+    statsBar.className = 'stats-bar';
+    const retScore = (meta && typeof meta.retrieval_score === 'number') ? meta.retrieval_score : 0;
+    statsBar.innerHTML = `
+      <div class="stat-pill">⏱ <span class="stat-val stat-latency">…</span></div>
+      <div class="stat-pill">🔢 <span class="stat-val stat-tokens">…</span></div>
+      <div class="stat-pill">📊 Top score <span class="stat-val">${(retScore * 100).toFixed(1)}%</span></div>
+    `;
+    aiCard.appendChild(statsBar);
+
+    thread.appendChild(aiCard);
+
+    function finalize(data) {
+      // Replace pending model tag, enable copy, fill stats.
+      const tag = cardHeader.querySelector('.ai-model-tag');
+      if (tag) {
+        tag.textContent = data.model || 'unknown';
+        tag.classList.remove('model-tag-pending');
+      }
+      const copyBtn = cardHeader.querySelector('.copy-btn');
+      if (copyBtn) {
+        copyBtn.disabled = false;
+        copyBtn.style.opacity = '';
+        copyBtn.style.cursor = '';
+        copyBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(data.answer || answerDiv.textContent).then(() => {
+            this.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+            setTimeout(() => {
+              this.innerHTML = `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+            }, 2200);
+          });
+        });
+      }
+      answerDiv.classList.remove('streaming');
+      statsBar.querySelector('.stat-latency').textContent = `${data.latency_ms ?? 0} ms`;
+      statsBar.querySelector('.stat-tokens').textContent  = `${data.total_tokens ?? 0} tokens`;
+    }
+
+    return { thread, answerDiv, finalize };
+  }
+
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Render the confidence pill from a "high" | "medium" | "low" label.
+  // We use a tooltip (title=) to explain the rubric so the badge is
+  // self-documenting for first-time viewers.
+  function renderConfidenceBadge(level) {
+    const safe = (level || 'pending').toLowerCase();
+    const tooltips = {
+      high:    'High confidence — top retrieved chunk is a strong semantic match (≥ 0.75)',
+      medium:  'Medium confidence — top match is plausible but verify (0.50–0.75)',
+      low:     'Low confidence — answer may not be well-grounded (< 0.50)',
+      pending: 'Confidence is being computed…',
+    };
+    const labels = { high: 'High', medium: 'Medium', low: 'Low', pending: '…' };
+    const cls   = ['high','medium','low'].includes(safe) ? safe : 'pending';
+    const tip   = tooltips[cls];
+    const label = labels[cls];
+    return `<span class="confidence-badge ${cls}" title="${escHtml(tip)}"><span class="dot"></span>${label}</span>`;
+  }
+</script>
+</body>
+</html>

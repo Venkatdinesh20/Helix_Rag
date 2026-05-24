@@ -1,0 +1,39 @@
+# .gcloudignore — controls what Cloud Build uploads as the build context.
+# Anything listed here is excluded from the tarball sent to Cloud Build.
+# Keeping this tight saves upload time and prevents secrets from leaking.
+
+# Python virtual environment — huge (300 MB+), never needed in Cloud Build
+.venv/
+venv/
+env/
+
+# Local vector store — baked into the Docker image for a self-contained
+# container. Override at runtime with GCS_VECTOR_STORE_URI for larger corpora.
+# (Do not exclude — Dockerfile needs it for the COPY step.)
+#vector_store/
+
+# Raw and processed data — documents live in GCS in production
+data/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Local dev / editor files
+.env
+.env.*
+*.env
+.vscode/
+.idea/
+*.log
+
+# Git internals (Cloud Build clones the repo, this is a safeguard)
+.git/
+
+# Test outputs / evaluation artefacts
+evaluation/experiment_results.json
+test_output.txt

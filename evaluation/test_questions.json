@@ -1,0 +1,32 @@
+[
+  {
+    "id": "q001",
+    "question": "What is the refund policy?",
+    "expected_document": "company_policies.txt",
+    "expected_keywords": ["30 days", "refund", "purchase"]
+  },
+  {
+    "id": "q002",
+    "question": "How can I contact support?",
+    "expected_document": "company_policies.txt",
+    "expected_keywords": ["support@company.com", "1-800-555-0100", "email"]
+  },
+  {
+    "id": "q003",
+    "question": "What documents are required for onboarding?",
+    "expected_document": "company_policies.txt",
+    "expected_keywords": ["photo ID", "proof of address", "bank account", "employment contract"]
+  },
+  {
+    "id": "q004",
+    "question": "How many days of annual leave do employees get?",
+    "expected_document": "company_policies.txt",
+    "expected_keywords": ["20 days", "annual leave"]
+  },
+  {
+    "id": "q005",
+    "question": "How do I reset my password?",
+    "expected_document": "company_policies.txt",
+    "expected_keywords": ["Forgot Password", "email", "reset link"]
+  }
+]

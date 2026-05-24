@@ -1,0 +1,16 @@
+aiofiles
+fastapi
+google-cloud-storage
+uvicorn[standard]
+pydantic
+python-dotenv
+python-multipart
+pypdf
+sentence-transformers
+numpy
+scikit-learn
+faiss-cpu
+rank-bm25
+openai
+pytest
+httpx

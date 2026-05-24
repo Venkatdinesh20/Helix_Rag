@@ -108,7 +108,7 @@ steps:
       # Cold-start: ~15-25 s while sentence-transformers + cross-encoder load.
       # Bump memory to 2Gi and cpu to 2 once you're past the free tier.
       - --memory
-      - 1Gi
+      - 2Gi
       - --cpu
       - "1"
       - --min-instances

@@ -19,6 +19,14 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Pre-download the embedding model so cold-start does NOT block on a
+# HuggingFace download (Cloud Run startup probe times out otherwise).
+# We pin the cache under /app/.cache so the non-root appuser can read it.
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_OFFLINE=0
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')" \
+ && chmod -R a+rX /app/.cache
+
 # Copy application source code
 COPY app/ ./app/
 COPY pipeline/ ./pipeline/

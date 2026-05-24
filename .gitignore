@@ -21,3 +21,7 @@ evaluation/results.json
 .pytest_cache/
 .vscode/
 .idea/
+
+tools/
+public/
+.firebase/

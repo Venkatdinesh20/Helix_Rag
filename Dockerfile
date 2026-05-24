@@ -8,6 +8,7 @@ WORKDIR /app
 # Install dependencies first (separate layer = cached unless requirements.txt changes)
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
  && pip install --no-cache-dir -r requirements.txt
 
 # ── Stage 2: Runtime ────────────────────────────────────────────────────────

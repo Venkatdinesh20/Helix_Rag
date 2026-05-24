@@ -25,11 +25,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # We pin the cache under /app/.cache so the non-root appuser can read it.
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_OFFLINE=0
-RUN python -c "
-from sentence_transformers import SentenceTransformer, CrossEncoder
-SentenceTransformer('all-MiniLM-L6-v2')
-CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
-" && chmod -R a+rX /app/.cache
+RUN python -c "from sentence_transformers import SentenceTransformer, CrossEncoder; SentenceTransformer('all-MiniLM-L6-v2'); CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')" && chmod -R a+rX /app/.cache
 
 # Copy application source code
 COPY app/ ./app/

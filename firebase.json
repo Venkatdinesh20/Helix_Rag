@@ -1,9 +1,0 @@
-{
-  "hosting": {
-    "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      { "source": "**", "run": { "serviceId": "rag-api", "region": "us-central1" } }
-    ]
-  }
-}

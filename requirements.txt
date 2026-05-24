@@ -1,6 +1,5 @@
 aiofiles
 fastapi
-google-cloud-storage
 uvicorn[standard]
 pydantic
 python-dotenv

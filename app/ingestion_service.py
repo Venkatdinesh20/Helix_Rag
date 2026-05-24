@@ -58,7 +58,7 @@ logger = logging.getLogger("rag_ingestion")
 
 # ── Limits & policy ──────────────────────────────────────────────────────────
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
 ALLOWED_EXTENSIONS = {".pdf", ".txt"}
 RAW_DIR = Path("data/raw")
 

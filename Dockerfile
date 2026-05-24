@@ -46,9 +46,12 @@ RUN pip install --no-cache-dir google-cloud-storage
 COPY startup.sh ./startup.sh
 
 # Security: run as non-root user
+# Create data/raw dir and ensure appuser owns all writable paths
 RUN groupadd --gid 1000 appuser \
  && useradd --uid 1000 --gid 1000 --no-create-home appuser \
- && chmod +x startup.sh
+ && chmod +x startup.sh \
+ && mkdir -p data/raw data/processed \
+ && chown -R appuser:appuser data/ vector_store/
 USER appuser
 
 # Cloud Run sets PORT env variable; default to 8000 for local use

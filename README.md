@@ -1,3 +1,12 @@
+---
+title: Rag
+emoji: 🧠
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # Cloud-Native RAG — Production-Grade Retrieval-Augmented Generation
 
 A full-stack, evaluable, observable RAG system for document question answering.

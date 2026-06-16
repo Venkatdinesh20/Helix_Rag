@@ -27,6 +27,8 @@ from app.cost_tracker import estimate_cost, get_tracker
 from app.generation import generate_answer, stream_answer
 from app.guardrails import check_input, redact_pii
 from app.retrieval import retrieve
+from app.reranker import rerank
+from app.tracer import obs
 
 
 # Score threshold — chunks below this score are considered not relevant.
@@ -194,11 +196,17 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         return convo
 
     # Step 1: Retrieve relevant chunks
-    retrieved_chunks = retrieve(question, top_k=settings.retrieval_top_k)
+    with obs.track("retrieval"):
+        retrieved_chunks = retrieve(question, top_k=settings.retrieval_top_k)
 
     # Step 2: Filter chunks below the minimum score threshold
     # Low-score chunks add noise to the prompt and can mislead the LLM
     relevant_chunks = [c for c in retrieved_chunks if c["score"] >= MIN_RETRIEVAL_SCORE]
+
+    # Rerank the retrieved chunks
+    if settings.rerank_enabled:
+        with obs.track("rerank"):
+            relevant_chunks = rerank(question, relevant_chunks)
 
     # Step 3: Handle empty retrieval
     if not relevant_chunks:
@@ -231,7 +239,8 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
 
     # Step 4: Generate answer using LLM with prior conversation history
     history = session.history_for_llm()
-    generation_result = generate_answer(question, relevant_chunks, history=history)
+    with obs.track("llm"):
+        generation_result = generate_answer(question, relevant_chunks, history=history)
 
     elapsed_ms = int((time.time() - start_time) * 1000)
 
@@ -252,6 +261,19 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     if generation_result.get("error") is None:
         store.append_turn(session.session_id, "user", question)
         store.append_turn(session.session_id, "assistant", generation_result["answer"])
+        obs.finish(
+            session_id=session.session_id,
+            query=question,
+            rag_success=True,
+            prompt_tokens=generation_result.get("prompt_tokens", 0),
+            completion_tokens=generation_result.get("completion_tokens", 0),
+            total_tokens=generation_result.get("total_tokens", 0),
+            model=generation_result["model"],
+            final_answer=generation_result["answer"],
+            retrieved_docs=len(relevant_chunks),
+            docs_before_rerank=len(retrieved_chunks),
+            docs_after_rerank=len(relevant_chunks),
+        )
 
     # Output guardrail: optional PII redaction. Applied AFTER persisting
     # so the conversation memory keeps the original wording for context,

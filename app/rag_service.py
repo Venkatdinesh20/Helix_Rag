@@ -28,7 +28,7 @@ from app.generation import generate_answer, stream_answer
 from app.guardrails import check_input, redact_pii
 from app.retrieval import retrieve
 from app.reranker import rerank
-from app.tracer import obs
+from app.tracer import RAGObserver
 
 
 # Score threshold — chunks below this score are considered not relevant.
@@ -140,6 +140,13 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     start_time = time.time()
     store = get_store()
     session = store.get_or_create(session_id)
+    # Fresh per-request observer: RAGObserver tracks one query's timings/
+    # trace end-to-end, so it must not be shared across concurrent requests.
+    observer = RAGObserver(
+        query=question,
+        model=getattr(settings, "openai_model", "unknown"),
+        filter_score_threshold=MIN_RETRIEVAL_SCORE,
+    )
 
     # Step -1: Input guardrails — reject too-long, empty, or prompt-injection
     # attempts before they touch retrieval/generation. This is cheap, has
@@ -196,7 +203,7 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         return convo
 
     # Step 1: Retrieve relevant chunks
-    with obs.track("retrieval"):
+    with observer.track("retrieval"):
         retrieved_chunks = retrieve(question, top_k=settings.retrieval_top_k)
 
     # Step 2: Filter chunks below the minimum score threshold
@@ -205,7 +212,7 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
 
     # Rerank the retrieved chunks
     if settings.rerank_enabled:
-        with obs.track("rerank"):
+        with observer.track("rerank"):
             relevant_chunks = rerank(question, relevant_chunks)
 
     # Step 3: Handle empty retrieval
@@ -221,6 +228,22 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
             completion_tokens=0,
             latency_ms=elapsed_ms,
             error=False,
+        )
+        observer.finish(
+            docs_retrieved=len(retrieved_chunks),
+            docs_after_rerank=0,
+            top_score=0.0,
+            mean_score=0.0,
+            tokens_input=0,
+            tokens_output=0,
+            tokens_embedding=0,
+            confidence=0.0,
+            has_citation=False,
+            faithfulness=-1,
+            answer_relevance=-1,
+            response=fallback_answer,
+            was_fallback=True,
+            error=None,
         )
         return {
             "answer":            fallback_answer,
@@ -239,7 +262,7 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
 
     # Step 4: Generate answer using LLM with prior conversation history
     history = session.history_for_llm()
-    with obs.track("llm"):
+    with observer.track("llm"):
         generation_result = generate_answer(question, relevant_chunks, history=history)
 
     elapsed_ms = int((time.time() - start_time) * 1000)
@@ -261,18 +284,26 @@ def ask(question: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     if generation_result.get("error") is None:
         store.append_turn(session.session_id, "user", question)
         store.append_turn(session.session_id, "assistant", generation_result["answer"])
-        obs.finish(
-            session_id=session.session_id,
-            query=question,
-            rag_success=True,
-            prompt_tokens=generation_result.get("prompt_tokens", 0),
-            completion_tokens=generation_result.get("completion_tokens", 0),
-            total_tokens=generation_result.get("total_tokens", 0),
-            model=generation_result["model"],
-            final_answer=generation_result["answer"],
-            retrieved_docs=len(relevant_chunks),
-            docs_before_rerank=len(retrieved_chunks),
+        _top_score = relevant_chunks[0]["score"] if relevant_chunks else 0.0
+        _mean_score = (
+            sum(c["score"] for c in relevant_chunks) / len(relevant_chunks)
+            if relevant_chunks else 0.0
+        )
+        observer.finish(
+            docs_retrieved=len(retrieved_chunks),
             docs_after_rerank=len(relevant_chunks),
+            top_score=_top_score,
+            mean_score=_mean_score,
+            tokens_input=generation_result.get("prompt_tokens", 0),
+            tokens_output=generation_result.get("completion_tokens", 0),
+            tokens_embedding=0,
+            confidence=_top_score,
+            has_citation=bool(sources),
+            faithfulness=-1,
+            answer_relevance=-1,
+            response=generation_result["answer"],
+            was_fallback=False,
+            error=None,
         )
 
     # Output guardrail: optional PII redaction. Applied AFTER persisting

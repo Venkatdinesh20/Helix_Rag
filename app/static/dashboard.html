@@ -166,6 +166,520 @@
     padding: 16px 0;
     text-align: center;
   }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 32px 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .v2-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(106,169,255,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(106,169,255,0.3);
+  }
+  .section-sub { margin-bottom: 16px; }
+  .table-scroll { max-height: 280px; overflow-y: auto; }
+  td.query-cell {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>RAG · Live Metrics</h1>
+    <div class="sub">Token usage, cost &amp; latency since process start</div>
+  </div>
+  <div class="right">
+    <span><span id="liveDot" class="status-dot"></span><span id="liveLabel">Live</span></span>
+    <span class="sub" id="updatedAt">—</span>
+    <a href="/">← Back to chat</a>
+  </div>
+</header>
+
+<main>
+  <!-- KPI cards -->
+  <div class="grid" id="kpis">
+    <div class="card"><h2>Uptime</h2><div class="value" id="kpi-uptime">—</div><div class="delta" id="kpi-uptime-sub"></div></div>
+    <div class="card"><h2>Requests</h2><div class="value" id="kpi-requests">—</div><div class="delta" id="kpi-requests-sub"></div></div>
+    <div class="card"><h2>Error rate</h2><div class="value" id="kpi-errors">—</div><div class="delta" id="kpi-errors-sub"></div></div>
+    <div class="card"><h2>Total tokens</h2><div class="value" id="kpi-tokens">—</div><div class="delta" id="kpi-tokens-sub"></div></div>
+    <div class="card"><h2>Cost (USD)</h2><div class="value" id="kpi-cost">—</div><div class="delta" id="kpi-cost-sub"></div></div>
+    <div class="card"><h2>Sessions</h2><div class="value" id="kpi-sessions">—</div><div class="delta" id="kpi-sessions-sub"></div></div>
+  </div>
+
+  <div class="row">
+    <!-- Latency -->
+    <div class="panel">
+      <h3>Latency (ms)</h3>
+      <div id="latency-bars"></div>
+      <div class="empty" id="latency-empty" style="display:none">No samples yet</div>
+    </div>
+
+    <!-- Model breakdown -->
+    <div class="panel">
+      <h3>Model usage</h3>
+      <div id="model-bars"></div>
+      <div class="empty" id="model-empty" style="display:none">No calls recorded</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Tokens by direction</h3>
+    <div id="tokens-bars"></div>
+  </div>
+
+  <h2 class="section-title">RAG Quality <span class="v2-tag">v2</span></h2>
+  <div class="sub section-sub">Per-query retrieval &amp; generation quality, from the trace store — not just token counts.</div>
+
+  <div class="grid" id="quality-kpis">
+    <div class="card"><h2>Avg cost / query</h2><div class="value" id="q-avg-cost">—</div></div>
+    <div class="card"><h2>Fallback rate</h2><div class="value" id="q-fallback">—</div><div class="delta">no relevant context found</div></div>
+    <div class="card"><h2>Citation rate</h2><div class="value" id="q-citation">—</div><div class="delta">answers with a cited source</div></div>
+    <div class="card"><h2>Avg confidence</h2><div class="value" id="q-confidence">—</div></div>
+    <div class="card"><h2>Avg top retrieval score</h2><div class="value" id="q-topscore">—</div></div>
+    <div class="card"><h2>Traces recorded</h2><div class="value" id="q-tracecount">—</div></div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <h3>Latency by stage (ms)</h3>
+      <div id="stage-latency-bars"></div>
+      <div class="empty" id="stage-latency-empty" style="display:none">No traces yet</div>
+    </div>
+
+    <div class="panel">
+      <h3>Recent queries</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Query</th><th class="num">Latency</th><th class="num">Confidence</th><th class="num">Cost</th></tr></thead>
+          <tbody id="recent-traces-body"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="recent-empty" style="display:none">No queries yet</div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const REFRESH_MS = 3000;
+const NUMBER_FMT = new Intl.NumberFormat("en-US");
+const COST_FMT   = new Intl.NumberFormat("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
+
+function fmtInt(n)   { return Number.isFinite(n) ? NUMBER_FMT.format(n) : "—"; }
+function fmtCost(n)  { return "$" + COST_FMT.format(Number.isFinite(n) ? n : 0); }
+function fmtPct(n)   { return (n * 100).toFixed(2) + "%"; }
+function fmtUptime(s) {
+  s = Math.max(0, Math.floor(s || 0));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d) return `${d}d ${h}h ${m}m`;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function setText(id, txt, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = txt;
+  if (cls !== undefined) {
+    el.classList.remove("good", "warn", "bad");
+    if (cls) el.classList.add(cls);
+  }
+}
+
+function classifyErrorRate(rate) {
+  if (rate >= 0.05) return "bad";
+  if (rate >= 0.01) return "warn";
+  return "good";
+}
+
+function renderLatency(latency) {
+  const root = document.getElementById("latency-bars");
+  const empty = document.getElementById("latency-empty");
+  if (!latency || latency.count === 0) {
+    root.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  // Normalise bars against the max so visual scale is meaningful.
+  const max = Math.max(latency.max || 1, 1);
+  const rows = [
+    ["p50", latency.p50],
+    ["p95", latency.p95],
+    ["p99", latency.p99],
+    ["avg", latency.avg],
+    ["max", latency.max],
+  ];
+  root.innerHTML = rows.map(([label, val]) => {
+    const pct = Math.min(100, (val / max) * 100).toFixed(1);
+    return `
+      <div class="bar-row">
+        <div class="label">${label}</div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="num">${fmtInt(val)} ms</div>
+      </div>`;
+  }).join("");
+}
+
+function renderModels(modelCalls) {
+  const root = document.getElementById("model-bars");
+  const empty = document.getElementById("model-empty");
+  const entries = Object.entries(modelCalls || {}).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    root.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  const total = entries.reduce((s, [, n]) => s + n, 0);
+  root.innerHTML = entries.map(([model, n]) => {
+    const pct = ((n / total) * 100).toFixed(1);
+    return `
+      <div class="bar-row">
+        <div class="label">${escapeHtml(model)}</div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="num">${fmtInt(n)}</div>
+      </div>`;
+  }).join("");
+}
+
+function renderTokens(g) {
+  const root = document.getElementById("tokens-bars");
+  const total = Math.max(g.total_tokens || 1, 1);
+  const rows = [
+    ["prompt",     g.prompt_tokens || 0],
+    ["completion", g.completion_tokens || 0],
+  ];
+  root.innerHTML = rows.map(([label, val]) => {
+    const pct = Math.min(100, (val / total) * 100).toFixed(1);
+    return `
+      <div class="bar-row">
+        <div class="label">${label}</div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="num">${fmtInt(val)}</div>
+      </div>`;
+  }).join("");
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function markStale(isStale) {
+  const dot = document.getElementById("liveDot");
+  const lbl = document.getElementById("liveLabel");
+  if (isStale) {
+    dot.classList.add("stale");
+    lbl.textContent = "Disconnected";
+  } else {
+    dot.classList.remove("stale");
+    lbl.textContent = "Live";
+  }
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/stats", { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const g = data.global || {};
+
+    setText("kpi-uptime",   fmtUptime(g.uptime_seconds));
+    setText("kpi-requests", fmtInt(g.requests || 0));
+    setText("kpi-requests-sub", `${fmtInt(g.errors || 0)} errors`);
+    setText("kpi-errors",   fmtPct(g.error_rate || 0), classifyErrorRate(g.error_rate || 0));
+    setText("kpi-tokens",   fmtInt(g.total_tokens || 0));
+    setText("kpi-tokens-sub",
+      `${fmtInt(g.prompt_tokens || 0)} in · ${fmtInt(g.completion_tokens || 0)} out`);
+    setText("kpi-cost",     fmtCost(g.cost_usd || 0));
+    setText("kpi-sessions", fmtInt(g.sessions || 0));
+
+    renderLatency(g.latency_ms);
+    renderModels(g.model_calls);
+    renderTokens(g);
+
+    document.getElementById("updatedAt").textContent =
+      "Updated " + new Date().toLocaleTimeString();
+    markStale(false);
+  } catch (err) {
+    console.warn("dashboard refresh failed:", err);
+    markStale(true);
+  }
+}
+
+// ---------------------------------------------------------------------
+// RAG Quality (v2) — sourced from /observability, backed by the trace
+// store in app/tracer.py. Separate poll loop from the coarse /stats
+// panel above: independent endpoint, safe to fail without breaking it.
+// ---------------------------------------------------------------------
+
+function fmtScore(n) {
+  return Number.isFinite(n) ? n.toFixed(2) : "—";
+}
+
+function renderStageLatency(summary) {
+  const root = document.getElementById("stage-latency-bars");
+  const empty = document.getElementById("stage-latency-empty");
+  const stages = [
+    ["retrieval", summary.latency_retrieval],
+    ["rerank",    summary.latency_rerank],
+    ["llm",       summary.latency_llm],
+    ["total",     summary.latency_total],
+  ].filter(([, s]) => s && s.count > 0);
+
+  if (!stages.length) {
+    root.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  const max = Math.max(...stages.map(([, s]) => s.p95 || s.mean || 1), 1);
+  root.innerHTML = stages.map(([label, s]) => {
+    const pct = Math.min(100, ((s.p95 || s.mean) / max) * 100).toFixed(1);
+    return `
+      <div class="bar-row">
+        <div class="label">${label}</div>
+        <div class="bar"><div style="width:${pct}%"></div></div>
+        <div class="num">${fmtInt(s.p50)} / ${fmtInt(s.p95)} ms</div>
+      </div>`;
+  }).join("");
+}
+
+function renderRecentTraces(recent) {
+  const body = document.getElementById("recent-traces-body");
+  const empty = document.getElementById("recent-empty");
+  if (!recent || !recent.length) {
+    body.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  body.innerHTML = recent.map(t => `
+    <tr>
+      <td class="query-cell" title="${escapeHtml(t.query || "")}">${escapeHtml(t.query || "—")}</td>
+      <td class="num">${fmtInt(t.latency_total_ms)} ms</td>
+      <td class="num">${fmtScore(t.confidence_score)}</td>
+      <td class="num">${fmtCost(t.cost_usd)}</td>
+    </tr>`).join("");
+}
+
+async function refreshObservability() {
+  try {
+    const res = await fetch("/observability?window=100&recent=20", { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const s = data.summary || {};
+
+    setText("q-avg-cost",   fmtCost(s.avg_cost_per_query_usd || 0));
+    setText("q-fallback",   fmtPct(s.fallback_rate || 0));
+    setText("q-citation",   fmtPct(s.citation_rate || 0));
+    setText("q-confidence", s.confidence ? fmtScore(s.confidence.mean) : "—");
+    setText("q-topscore",   s.top_score ? fmtScore(s.top_score.mean) : "—");
+    setText("q-tracecount", fmtInt(s.total_traces || 0));
+
+    renderStageLatency(s);
+    renderRecentTraces(data.recent);
+  } catch (err) {
+    console.warn("observability refresh failed:", err);
+  }
+}
+
+refresh();
+refreshObservability();
+setInterval(refresh, REFRESH_MS);
+setInterval(refreshObservability, REFRESH_MS);
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>RAG Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root {
+    --bg:        #0b1220;
+    --panel:     #131b2e;
+    --panel-2:   #1a2440;
+    --border:    #243054;
+    --text:      #e6edf7;
+    --muted:     #8a98b8;
+    --accent:    #6aa9ff;
+    --good:      #4ade80;
+    --warn:      #fbbf24;
+    --bad:       #f87171;
+    --mono:      ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  header h1 { font-size: 20px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .right { display: flex; align-items: center; gap: 16px; }
+  header a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  header a:hover { text-decoration: underline; }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--good);
+    box-shadow: 0 0 8px var(--good);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-dot.stale { background: var(--bad); box-shadow: 0 0 8px var(--bad); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  main {
+    padding: 24px 32px;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .card h2 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .card .value {
+    font-size: 28px;
+    font-weight: 600;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .card .delta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .card .value.good { color: var(--good); }
+  .card .value.warn { color: var(--warn); }
+  .card .value.bad  { color: var(--bad); }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .row { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .panel h3 {
+    font-size: 14px;
+    margin: 0 0 16px;
+    font-weight: 600;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  td.num { font-family: var(--mono); text-align: right; }
+
+  .bar-row {
+    display: grid;
+    grid-template-columns: 110px 1fr 60px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .bar-row .label { color: var(--muted); font-family: var(--mono); }
+  .bar-row .bar {
+    background: var(--panel-2);
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .bar-row .bar > div {
+    background: linear-gradient(90deg, #6aa9ff, #a855f7);
+    height: 100%;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .bar-row .num { font-family: var(--mono); text-align: right; }
+
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 16px 0;
+    text-align: center;
+  }
 </style>
 </head>
 <body>

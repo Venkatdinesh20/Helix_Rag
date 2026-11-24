@@ -1,0 +1,40 @@
+Northbeam Analytics — Information Security Policy (Fictional demo document)
+
+This policy is fictional and exists only to demonstrate the Helix RAG system.
+
+1. Scope
+This policy applies to all employees, contractors and interns who access Northbeam systems or customer data. The policy owner is the Head of Security, Daniel Okafor. It is reviewed every year in January.
+
+2. Data classification
+Northbeam classifies data into four levels:
+- Public: approved for anyone, such as marketing pages.
+- Internal: for employees only, such as the org chart and this handbook.
+- Confidential: limited to teams with a business need, such as financial forecasts and contracts.
+- Restricted: customer sales data and any personal information. Restricted data must stay in Canadian data centres and must never be copied to personal devices.
+
+3. Accounts and passwords
+Every account must use single sign-on through Okta with multi-factor authentication.
+Passwords must be at least 14 characters. Password managers are required; the company standard is 1Password.
+Shared accounts are not allowed, except for break-glass administrator accounts stored in the security vault.
+
+4. Devices
+Company laptops are encrypted and managed by the IT team. Employees must install operating-system updates within 7 days of release.
+Personal phones may be used for email and chat only if they are enrolled in mobile device management.
+A lost or stolen device must be reported to security@northbeam.example within 1 hour.
+
+5. AI tools
+Employees may use the company-approved AI assistant for Internal and Public data.
+Confidential and Restricted data must never be pasted into public AI tools or consumer chatbots.
+Any new AI tool that will process customer data requires a security review, which normally takes 10 working days.
+
+6. Access reviews
+Managers review their team's access to Confidential and Restricted systems every quarter.
+Access is removed within 24 hours when an employee leaves the company.
+
+7. Incident response
+Suspected security incidents must be reported immediately in the #security-incident Slack channel or by calling the on-call security number.
+Northbeam aims to notify affected customers within 72 hours of confirming a breach of Restricted data.
+After every major incident the security team publishes a blameless post-incident review within 10 working days.
+
+8. Training
+All staff complete security awareness training when they join and every year after that. Engineers also complete secure-coding training every year.

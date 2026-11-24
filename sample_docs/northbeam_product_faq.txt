@@ -1,0 +1,32 @@
+Northbeam Forecast — Product FAQ (Fictional demo document)
+
+Northbeam Forecast is a fictional product used to demonstrate the Helix RAG system.
+
+What is Northbeam Forecast?
+Northbeam Forecast predicts weekly product demand for retailers with 10 to 500 stores. It combines point-of-sale history, promotions, holidays and local weather to forecast demand up to 26 weeks ahead.
+
+How accurate are the forecasts?
+Across pilot customers, the median weekly forecast error (WMAPE) is 18% at store-and-product level and 7% at regional level. Accuracy is usually lower for new products with less than 8 weeks of sales history.
+
+What data do customers need to provide?
+At minimum, two years of daily point-of-sale data by store and product, a product catalogue, and a promotions calendar. Inventory levels and weather feeds are optional but improve accuracy.
+
+How often are forecasts updated?
+Forecasts refresh every night at 02:00 local time. Customers on the Enterprise plan can trigger an extra on-demand refresh up to 4 times per day.
+
+Which plans are available?
+- Starter: up to 25 stores, weekly forecasts, email support.
+- Growth: up to 150 stores, daily forecasts, promotions modelling, chat support.
+- Enterprise: unlimited stores, on-demand refreshes, a dedicated customer success manager, and a 99.9% uptime SLA.
+
+Where is customer data stored?
+All customer data is stored in Canadian data centres and encrypted at rest and in transit. Northbeam does not use one customer's data to train models for another customer.
+
+Can Forecast integrate with other systems?
+Yes. Northbeam provides connectors for common retail systems, an export to CSV and Parquet, and a REST API. API keys are created by customer administrators and expire after 12 months.
+
+How long does onboarding take?
+A typical onboarding takes 6 to 8 weeks: 2 weeks for data connection, 3 weeks for model training and back-testing, and 1 to 3 weeks for user training and go-live.
+
+What happens if forecasts look wrong?
+Users can flag a forecast in the app. Flags are reviewed by the data science team within 2 working days, and recurring issues are added to the monthly model review.

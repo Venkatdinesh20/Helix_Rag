@@ -1,0 +1,41 @@
+Northbeam Analytics — Employee Handbook (Fictional demo document)
+
+This handbook belongs to Northbeam Analytics, a fictional company created to demonstrate the Helix RAG system. None of the people, policies or figures below are real.
+
+1. About Northbeam
+Northbeam Analytics builds forecasting software for mid-sized retailers. The company was founded in 2019, has 240 employees, and is headquartered in Halifax, Nova Scotia, with smaller hubs in Calgary and Montreal. The Chief People Officer is Marisol Achebe.
+
+2. Working hours and hybrid work
+Core collaboration hours are 10:00 to 15:00 Atlantic Time, Monday to Thursday. Outside those hours, employees set their own schedule.
+Employees may work remotely up to three days per week. Teams agree on at least one shared office day each week; for most teams this is Tuesday.
+Fully remote arrangements require written approval from the employee's director and the People team, and are reviewed every 12 months.
+Employees working remotely from outside Canada for more than 20 working days in a calendar year must get prior approval from Legal, because of tax and data-residency rules.
+
+3. Paid time off
+Full-time employees receive 20 days of paid vacation per year, increasing to 25 days after five years of service.
+Up to 5 unused vacation days can be carried over into the next year; carried-over days expire on March 31.
+Employees receive 7 personal and sick days per year. A medical note is only required for absences longer than 3 consecutive working days.
+Northbeam closes between December 24 and January 1. These closure days do not count against vacation.
+
+4. Parental leave
+Northbeam tops up government parental benefits to 90% of base salary for the first 16 weeks of leave, for all parents, regardless of gender or how they became a parent.
+Employees must have completed 6 months of service to qualify for the top-up.
+
+5. Learning budget
+Each employee has an annual learning budget of CAD 1,500 for courses, certifications, books and conferences.
+Unused learning budget does not carry over.
+Certifications that cost more than CAD 1,500 can be approved by a director if they are directly related to the employee's role.
+
+6. Expenses
+Expenses must be submitted in the Ledgerly app within 30 days of purchase, with an itemised receipt.
+Meals during approved business travel are reimbursed up to CAD 75 per day.
+Economy class is the standard for flights under 6 hours; premium economy is allowed for flights of 6 hours or longer.
+The home-office stipend is a one-time CAD 600 for new employees, plus CAD 150 per year after the first year.
+
+7. Performance and growth
+Performance conversations happen twice a year, in May and November.
+Promotions are reviewed once a year, in November, by a calibration committee for each department.
+Employees can request an internal transfer after 12 months in their current role.
+
+8. Code of conduct
+Northbeam expects respectful, inclusive behaviour in every interaction. Concerns can be raised with a manager, the People team, or anonymously through the EthicsLine portal. Retaliation against anyone who raises a concern in good faith is prohibited.
